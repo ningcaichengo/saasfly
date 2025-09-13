@@ -2,10 +2,10 @@
   "name": "@saasfly/auth-proxy",
   "private": true,
   "type": "module",
-  "scripts": {
+"scripts": {
     "clean": "rm -rf .turbo node_modules",
     "lint": "eslint",
-    "format": "prettier --write '**/*.{js,cjs,mjs,ts,tsx,md,json}'  --ignore-path .prettierignore",
+    "format": "prettier --write '**/*.{js,cjs,mjs,ts,tsx,md,json}'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
