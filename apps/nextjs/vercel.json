@@ -1,5 +1,5 @@
 {
   "installCommand": "cd ../.. && bun install",
-  "buildCommand": "bun with-env next build",
+  "buildCommand": "contentlayer2 build && bun with-env next build",
   "framework": "nextjs"
 }
