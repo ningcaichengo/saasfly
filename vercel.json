@@ -1,8 +1,4 @@
 {
-  "buildCommand": "bun --cwd apps/nextjs run build",
-  "outputDirectory": "apps/nextjs/.next",
-  "installCommand": "bun install",
-  "framework": "nextjs",
   "github": {
     "silent": true
   }

@@ -1,0 +1,5 @@
+{
+  "installCommand": "cd ../.. && bun install",
+  "buildCommand": "bun with-env next build",
+  "framework": "nextjs"
+}
