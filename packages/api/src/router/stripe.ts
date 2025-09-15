@@ -46,7 +46,7 @@ export const stripeRouter = createTRPCRouter({
         .where("authUserId", "=", userId)
         .executeTakeFirst();
 
-      const returnUrl = env.NEXTAUTH_URL + "/dashboard";
+      const returnUrl = process.env.NEXT_PUBLIC_APP_URL + "/dashboard";
 
       if (customer && customer.plan !== "FREE") {
         /**
