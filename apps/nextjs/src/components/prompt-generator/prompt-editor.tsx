@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@saasfly/ui/button";
 import { Card } from "@saasfly/ui/card";
-import { Textarea } from "@saasfly/ui/textarea";
 import { Label } from "@saasfly/ui/label";
 import * as Icons from "@saasfly/ui/icons";
 
@@ -68,11 +67,12 @@ export function PromptEditor() {
           </div>
 
           {/* Editable textarea */}
-          <Textarea
+          <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="min-h-[120px] border-[#E5E7EB] bg-white text-[#1F2937] focus:border-[#5D8BBA] focus:ring-[#5D8BBA]"
+            className="min-h-[120px] w-full p-3 border border-[#E5E7EB] bg-white text-[#1F2937] rounded-md focus:border-[#5D8BBA] focus:ring-2 focus:ring-[#5D8BBA] focus:outline-none resize-none"
             placeholder="Enter your prompt here..."
+            rows={5}
           />
 
           <div className="flex justify-end">

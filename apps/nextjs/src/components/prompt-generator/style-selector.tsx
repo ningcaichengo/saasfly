@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { Card } from "@saasfly/ui/card";
-import { RadioGroup, RadioGroupItem } from "@saasfly/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@saasfly/ui/select";
 import { Label } from "@saasfly/ui/label";
 
 const styles = [
@@ -21,28 +27,25 @@ export function StyleSelector() {
         Choose a generation style:
       </Label>
       <Card className="p-4 border-2 border-[#E5E7EB] bg-white">
-        <RadioGroup
-          value={selectedStyle}
-          onValueChange={setSelectedStyle}
-          className="space-y-3"
-        >
-          {styles.map((style) => (
-            <div key={style.id} className="flex items-center space-x-2">
-              <RadioGroupItem
+        <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+          <SelectTrigger className="w-full border-[#E5E7EB] text-[#1F2937] focus:border-[#5D8BBA] focus:ring-[#5D8BBA]">
+            <SelectValue placeholder="Select a style" />
+          </SelectTrigger>
+          <SelectContent className="bg-white border-[#E5E7EB]">
+            {styles.map((style) => (
+              <SelectItem
+                key={style.id}
                 value={style.id}
-                id={style.id}
-                className="border-[#E5E7EB] text-[#5D8BBA]"
-              />
-              <Label
-                htmlFor={style.id}
-                className="text-sm text-[#1F2937] cursor-pointer flex-1"
+                className="text-[#1F2937] hover:bg-[#F9EAFB] cursor-pointer"
               >
-                <span className="font-medium">{style.name}</span>
-                <span className="text-[#6B7280] ml-2">({style.description})</span>
-              </Label>
-            </div>
-          ))}
-        </RadioGroup>
+                <div className="flex flex-col">
+                  <span className="font-medium">{style.name}</span>
+                  <span className="text-[#6B7280] text-xs">{style.description}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </Card>
     </div>
   );
