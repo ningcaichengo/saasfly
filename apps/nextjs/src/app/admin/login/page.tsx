@@ -3,7 +3,8 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { OAuthStrategy } from "@clerk/types";
+import { useSignIn } from "@clerk/nextjs";
 
 import { cn } from "@saasfly/ui";
 import { CardBody, CardContainer, CardItem } from "@saasfly/ui/3d-card";
@@ -11,8 +12,22 @@ import { buttonVariants } from "@saasfly/ui/button";
 import * as Icons from "@saasfly/ui/icons";
 
 export default function LoginPage() {
-  // const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [isGitHubLoading, setIsGitHubLoading] = React.useState<boolean>(false);
+  const { signIn } = useSignIn();
+
+  const signInWith = (strategy: OAuthStrategy) => {
+    if (!signIn) return;
+
+    return signIn
+      .authenticateWithRedirect({
+        strategy,
+        redirectUrl: '/admin/login/sso-callback',
+        redirectUrlComplete: '/admin/dashboard',
+      })
+      .catch((error) => {
+        console.error("Admin login error:", error);
+      });
+  };
 
   return (
     <div className="container flex h-screen w-screen flex-col items-center justify-center">
@@ -67,12 +82,10 @@ export default function LoginPage() {
               className={cn(buttonVariants({ variant: "outline" }))}
               onClick={() => {
                 setIsGitHubLoading(true);
-                signIn("github", {
-                  redirect: true,
-                  callbackUrl: "http://localhost:3000/admin/dashboard",
-                }).catch((error) => {
-                  console.error("GitHub signIn error:", error);
-                });
+                void signInWith('oauth_github')
+                  .then(() => {
+                    // Redirect will be handled by Clerk
+                  });
               }}
               disabled={isGitHubLoading}
             >
