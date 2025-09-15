@@ -1,5 +1,14 @@
 {
   "github": {
     "silent": true
+  },
+  "buildCommand": "cd apps/nextjs && npm run build",
+  "outputDirectory": "apps/nextjs/.next",
+  "installCommand": "bun install",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
   }
 }
