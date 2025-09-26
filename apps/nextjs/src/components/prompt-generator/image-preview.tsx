@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Button } from "@saasfly/ui/button";
 import { Card } from "@saasfly/ui/card";
 import * as Icons from "@saasfly/ui/icons";
+import { analytics } from "~/lib/monitoring/logger";
 
 interface ImagePreviewProps {
   onPromptGenerated?: (prompt: string, description: string, tags: string[]) => void;
@@ -42,10 +43,11 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
     }
   };
 
-  const analyzeImage = async (file: File) => {
+  const analyzeImage = async (file: File, retryCount: number = 0) => {
     if (!onPromptGenerated) return;
 
     setIsAnalyzing(true);
+
     try {
       const formData = new FormData();
       formData.append('image', file);
@@ -55,18 +57,105 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to analyze image');
-      }
-
       const result = await response.json();
-      onPromptGenerated(result.prompt, result.description, result.tags);
+
+      if (response.ok && result.success && result.data) {
+        onPromptGenerated(result.data.prompt, result.data.description, result.data.tags);
+
+        // Track successful prompt generation in frontend
+        analytics.track('prompt_generated_frontend', {
+          provider: result.data.provider,
+          processing_time: result.data.processingTime?.total,
+          prompt_length: result.data.prompt?.length,
+          tags_count: result.data.tags?.length,
+          confidence: result.data.confidence,
+          file_size: file.size,
+          file_type: file.type
+        });
+
+        // 显示成功信息（可选）
+        if (result.data.provider !== 'mock') {
+          console.log(`Analysis completed using ${result.data.provider} in ${result.data.processingTime?.total}ms`);
+        }
+      } else {
+        // 处理API错误响应
+        const errorMessage = result.error?.message || 'Analysis failed';
+        const errorCode = result.error?.code || 'UNKNOWN_ERROR';
+
+        // 检查是否应该重试
+        if (shouldRetry(response.status, errorCode) && retryCount < 2) {
+          console.log(`Retrying analysis (attempt ${retryCount + 1}/3)...`);
+
+          // 计算重试延迟
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          await new Promise(resolve => setTimeout(resolve, delay));
+
+          return analyzeImage(file, retryCount + 1);
+        }
+
+        // Track analysis failure in frontend
+        analytics.track('analysis_failed_frontend', {
+          error_code: errorCode,
+          error_message: errorMessage,
+          status_code: response.status,
+          retry_count: retryCount,
+          file_size: file.size,
+          file_type: file.type
+        });
+
+        throw new Error(getErrorMessage(response.status, errorCode, errorMessage));
+      }
     } catch (error) {
       console.error('Error analyzing image:', error);
-      alert('Failed to analyze image. Please try again.');
+
+      // Track frontend errors
+      analytics.track('frontend_error', {
+        error_type: 'analysis_exception',
+        error_message: error instanceof Error ? error.message : String(error),
+        retry_count: retryCount,
+        file_size: file.size,
+        file_type: file.type
+      });
+
+      // 显示用户友好的错误信息
+      showErrorMessage(error as Error);
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const shouldRetry = (status: number, code: string): boolean => {
+    // 重试条件：网络错误、超时、服务不可用、限流
+    const retryableStatuses = [408, 429, 502, 503, 504];
+    const retryableCodes = ['TIMEOUT', 'NETWORK_ERROR', 'SERVICE_UNAVAILABLE'];
+
+    return retryableStatuses.includes(status) || retryableCodes.includes(code);
+  };
+
+  const getErrorMessage = (status: number, code: string, originalMessage: string): string => {
+    switch (code) {
+      case 'IMAGE_TOO_LARGE':
+        return 'Image file is too large. Please use an image smaller than 10MB.';
+      case 'UNSUPPORTED_FORMAT':
+        return 'Unsupported image format. Please use JPG, PNG, GIF, or WebP.';
+      case 'QUOTA_EXCEEDED':
+        return 'AI service quota exceeded. Please try again later.';
+      case 'INVALID_API_KEY':
+        return 'AI service is temporarily unavailable. Please try again later.';
+      case 'TIMEOUT':
+        return 'Analysis timed out. Please try with a smaller image.';
+      case 'NETWORK_ERROR':
+        return 'Network error. Please check your connection and try again.';
+      case 'SERVICE_UNAVAILABLE':
+        return 'AI service is temporarily unavailable. Please try again later.';
+      default:
+        return originalMessage || 'Failed to analyze image. Please try again.';
+    }
+  };
+
+  const showErrorMessage = (error: Error) => {
+    // 在生产环境中，这里可以使用更优雅的通知组件
+    alert(error.message);
   };
 
   const handleImageClick = () => {

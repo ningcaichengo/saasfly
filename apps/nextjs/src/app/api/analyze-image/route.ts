@@ -1,78 +1,181 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getImageAnalyzer } from '~/lib/ai/factory';
+import { AIServiceError, ImageAnalysisOptions } from '~/lib/ai/types';
+import { logger, analytics } from '~/lib/monitoring/logger';
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+
   try {
+    // Parse request data
     const formData = await req.formData();
     const file = formData.get('image') as File;
+    const style = formData.get('style') as string || 'creative';
+    const language = formData.get('language') as string || 'auto';
+
+    logger.info('Image analysis request received', 'API', {
+      fileSize: file?.size,
+      fileType: file?.type,
+      style,
+      language
+    });
 
     if (!file) {
+      logger.warn('Image analysis failed: No file provided', 'API');
       return NextResponse.json(
         { error: 'No image file provided' },
         { status: 400 }
       );
     }
 
-    // Convert file to base64 for analysis
+    // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64Image = buffer.toString('base64');
     const mimeType = file.type;
 
-    // Mock AI image analysis - In production, this would call an AI service
-    // like OpenAI Vision API, Google Cloud Vision, or similar
-    const analysisResult = await analyzeImageWithAI(base64Image, mimeType);
+    // Validate basic file properties
+    if (!mimeType.startsWith('image/')) {
+      logger.warn('Image analysis failed: Invalid file type', 'API', {
+        mimeType,
+        fileName: file.name
+      });
+      return NextResponse.json(
+        { error: 'File must be an image' },
+        { status: 400 }
+      );
+    }
+
+    // Track analysis started
+    analytics.trackImageAnalysisStarted(file.size, mimeType);
+
+    // Get AI analyzer (will use configured provider)
+    const analyzer = await getImageAnalyzer();
+
+    // Set analysis options
+    const options: ImageAnalysisOptions = {
+      style: style as any,
+      language: language as any,
+      maxTokens: 500,
+      temperature: 0.7
+    };
+
+    logger.info(`Starting AI analysis with provider: ${analyzer.getProviderName()}`, 'API');
+
+    // Perform analysis
+    const result = await analyzer.analyzeImage(buffer, mimeType, options);
+
+    const totalTime = Date.now() - startTime;
+
+    logger.info(`AI analysis completed successfully in ${totalTime}ms`, 'API', {
+      provider: analyzer.getProviderName(),
+      confidence: result.confidence,
+      promptLength: result.prompt?.length,
+      tagsCount: result.tags?.length
+    });
+
+    // Track successful analysis
+    analytics.trackImageAnalysisCompleted(
+      analyzer.getProviderName(),
+      totalTime,
+      true
+    );
 
     return NextResponse.json({
       success: true,
-      prompt: analysisResult.prompt,
-      description: analysisResult.description,
-      tags: analysisResult.tags
+      data: {
+        prompt: result.prompt,
+        description: result.description,
+        tags: result.tags,
+        confidence: result.confidence,
+        provider: analyzer.getProviderName(),
+        processingTime: {
+          total: totalTime,
+          ai: result.processingTimeMs
+        }
+      }
     });
 
   } catch (error) {
-    console.error('Error analyzing image:', error);
+    const totalTime = Date.now() - startTime;
+
+    logger.error('AI analysis failed', 'API', {
+      error: error instanceof Error ? error.message : String(error),
+      processingTime: totalTime,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    if (error instanceof AIServiceError) {
+      // Handle specific AI service errors
+      const statusCode = getStatusCodeForError(error.code);
+
+      // Track failed analysis with specific error
+      analytics.trackImageAnalysisCompleted(
+        error.provider || 'unknown',
+        totalTime,
+        false,
+        error.code
+      );
+
+      logger.warn(`AI service error: ${error.code}`, 'API', {
+        provider: error.provider,
+        message: error.message
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            message: error.message,
+            code: error.code,
+            provider: error.provider,
+            processingTime: totalTime
+          }
+        },
+        { status: statusCode }
+      );
+    }
+
+    // Handle unexpected errors
+    analytics.trackImageAnalysisCompleted(
+      'unknown',
+      totalTime,
+      false,
+      'INTERNAL_ERROR'
+    );
+
     return NextResponse.json(
-      { error: 'Failed to analyze image' },
+      {
+        success: false,
+        error: {
+          message: 'Internal server error occurred during image analysis',
+          code: 'INTERNAL_ERROR',
+          processingTime: totalTime
+        }
+      },
       { status: 500 }
     );
   }
 }
 
-// Mock AI analysis function - replace with actual AI service integration
-async function analyzeImageWithAI(base64Image: string, mimeType: string) {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-
-  // Generate mock analysis based on common image characteristics
-  const mockPrompts = [
-    "A stunning photograph of a serene landscape, golden hour lighting, ultra-detailed, cinematic composition, professional photography",
-    "Beautiful portrait photography, soft natural lighting, bokeh background, high resolution, professional studio lighting",
-    "Vibrant urban architecture, modern cityscape, symmetrical composition, sharp details, architectural photography",
-    "Colorful abstract art, dynamic composition, bold colors, creative design, digital art masterpiece",
-    "Nature macro photography, incredible detail, shallow depth of field, natural colors, stunning clarity"
-  ];
-
-  const mockDescriptions = [
-    "A beautifully composed image with excellent lighting and composition",
-    "Professional quality photograph with great attention to detail",
-    "Visually striking image with strong artistic elements",
-    "Well-balanced composition with appealing color palette",
-    "High-quality image with distinctive visual characteristics"
-  ];
-
-  const mockTags = [
-    ["photography", "landscape", "golden hour", "cinematic"],
-    ["portrait", "lighting", "bokeh", "professional"],
-    ["architecture", "urban", "modern", "symmetrical"],
-    ["abstract", "colorful", "creative", "artistic"],
-    ["nature", "macro", "detailed", "organic"]
-  ];
-
-  const randomIndex = Math.floor(Math.random() * mockPrompts.length);
-
-  return {
-    prompt: mockPrompts[randomIndex],
-    description: mockDescriptions[randomIndex],
-    tags: mockTags[randomIndex]
-  };
+function getStatusCodeForError(errorCode: string): number {
+  switch (errorCode) {
+    case 'INVALID_API_KEY':
+      return 503; // Service Unavailable
+    case 'QUOTA_EXCEEDED':
+      return 429; // Too Many Requests
+    case 'IMAGE_TOO_LARGE':
+      return 413; // Payload Too Large
+    case 'UNSUPPORTED_FORMAT':
+      return 415; // Unsupported Media Type
+    case 'TIMEOUT':
+      return 408; // Request Timeout
+    case 'SERVICE_UNAVAILABLE':
+      return 503; // Service Unavailable
+    case 'NETWORK_ERROR':
+      return 502; // Bad Gateway
+    case 'INVALID_RESPONSE':
+      return 502; // Bad Gateway
+    default:
+      return 500; // Internal Server Error
+  }
 }

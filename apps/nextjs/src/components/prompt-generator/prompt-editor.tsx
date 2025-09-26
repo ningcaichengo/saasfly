@@ -5,6 +5,7 @@ import { Button } from "@saasfly/ui/button";
 import { Card } from "@saasfly/ui/card";
 import { Label } from "@saasfly/ui/label";
 import * as Icons from "@saasfly/ui/icons";
+import { analytics } from "~/lib/monitoring/logger";
 
 const defaultPrompt = "A sun, Space Opera scene. Vast starfield with colorful nebulae. Massive ornate spacecraft. Alien planet with multiple moons. Dramatic space lighting. Advanced tech elements. Diverse alien species. Epic scale. Vibrant cosmic colors. Sleek futuristic designs";
 
@@ -28,6 +29,12 @@ export function PromptEditor({ prompt: externalPrompt, onPromptChange }: PromptE
   }, [externalPrompt]);
 
   const handlePromptChange = (newPrompt: string) => {
+    const originalLength = prompt.length;
+    const newLength = newPrompt.length;
+
+    // Track prompt editing
+    analytics.trackPromptEdited(originalLength, newLength);
+
     setPrompt(newPrompt);
     if (onPromptChange) {
       onPromptChange(newPrompt);
@@ -37,10 +44,20 @@ export function PromptEditor({ prompt: externalPrompt, onPromptChange }: PromptE
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(prompt);
+
+      // Track prompt copy action
+      analytics.trackPromptCopied(prompt.length, 'unknown'); // Provider unknown from UI level
+
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy text: ', err);
+
+      // Track copy failure
+      analytics.track('prompt_copy_failed', {
+        prompt_length: prompt.length,
+        error: err instanceof Error ? err.message : String(err)
+      });
     }
   };
 
