@@ -1,16 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@saasfly/ui/button";
 import { Card } from "@saasfly/ui/card";
 import { Label } from "@saasfly/ui/label";
 import * as Icons from "@saasfly/ui/icons";
 
-const defaultPrompt = "A stunning PHOTOGRAPH of an astronaut cat, sitting on the moon, STARGAZING, HYPERDETAILED, cinematic lighting, < --ar 16:9 --s 750 >";
+const defaultPrompt = "A sun, Space Opera scene. Vast starfield with colorful nebulae. Massive ornate spacecraft. Alien planet with multiple moons. Dramatic space lighting. Advanced tech elements. Diverse alien species. Epic scale. Vibrant cosmic colors. Sleek futuristic designs";
 
-export function PromptEditor() {
-  const [prompt, setPrompt] = useState(defaultPrompt);
+interface PromptEditorProps {
+  prompt?: string;
+  onPromptChange?: (prompt: string) => void;
+}
+
+export function PromptEditor({ prompt: externalPrompt, onPromptChange }: PromptEditorProps) {
+  const [prompt, setPrompt] = useState(externalPrompt || defaultPrompt);
   const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Update prompt when external prompt changes
+  useEffect(() => {
+    if (externalPrompt) {
+      setPrompt(externalPrompt);
+    }
+  }, [externalPrompt]);
+
+  const handlePromptChange = (newPrompt: string) => {
+    setPrompt(newPrompt);
+    if (onPromptChange) {
+      onPromptChange(newPrompt);
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -29,23 +51,23 @@ export function PromptEditor() {
 
     return parts.map((part, index) => {
       if (/^[A-Z]{2,}$/.test(part)) {
-        // Highlight uppercase words in Serene Blue
+        // Highlight uppercase words in emerald
         return (
-          <span key={index} className="text-[#5D8BBA] font-semibold">
+          <span key={index} className="text-emerald-600 font-semibold">
             {part}
           </span>
         );
       } else if (/^<.*>$/.test(part)) {
-        // Highlight parameters in Graphite
+        // Highlight parameters in emerald gray
         return (
-          <span key={index} className="text-[#6B7280] font-mono">
+          <span key={index} className="text-emerald-500 font-mono">
             {part}
           </span>
         );
       } else {
-        // Normal text in Charcoal
+        // Normal text in emerald black
         return (
-          <span key={index} className="text-[#1F2937]">
+          <span key={index} className="text-emerald-900">
             {part}
           </span>
         );
@@ -54,33 +76,60 @@ export function PromptEditor() {
   };
 
   return (
-    <div className="space-y-4">
-      <Label className="text-sm font-medium text-[#1F2937]">
-        PROMPT STUDIO (Editable)
-      </Label>
+    <Card className="p-6 border-2 border-emerald-200 bg-white">
+      <div className="space-y-6">
+        <div>
+          <Label className="text-lg font-semibold text-emerald-900 mb-4 block">
+            PROMPT STUDIO (Editable)
+          </Label>
+        </div>
 
-      <Card className="p-4 border-2 border-[#E5E7EB] bg-white">
         <div className="space-y-4">
-          {/* Preview of highlighted text */}
-          <div className="min-h-[120px] p-3 bg-[#F9EAFB] rounded-md border border-[#E5E7EB] text-sm leading-relaxed">
-            {renderHighlightedText(prompt)}
+          {/* Combined Preview and Edit Area */}
+          <div
+            className={`min-h-[120px] p-4 bg-emerald-50 rounded-md transition-all duration-200 cursor-text relative ${
+              isEditing
+                ? 'border-2 border-emerald-500 ring-2 ring-emerald-500 ring-opacity-20'
+                : isHovering
+                ? 'border-2 border-emerald-300'
+                : 'border-2 border-dashed border-emerald-300'
+            }`}
+            onClick={() => {
+              setIsEditing(true);
+              setTimeout(() => textareaRef.current?.focus(), 0);
+            }}
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+          >
+            {isEditing ? (
+              <textarea
+                ref={textareaRef}
+                value={prompt}
+                onChange={(e) => handlePromptChange(e.target.value)}
+                onBlur={() => setIsEditing(false)}
+                className="w-full h-full min-h-[100px] bg-transparent text-emerald-900 text-sm leading-relaxed resize-none outline-none"
+                placeholder="Enter your prompt here..."
+                autoFocus
+              />
+            ) : (
+              <div className="text-sm leading-relaxed">
+                {renderHighlightedText(prompt)}
+                {!isHovering && (
+                  <div className="flex items-center text-emerald-600 mt-2 text-xs opacity-60">
+                    <span className="mr-1">✏️</span>
+                    Click to edit prompt
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-
-          {/* Editable textarea */}
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            className="min-h-[120px] w-full p-3 border border-[#E5E7EB] bg-white text-[#1F2937] rounded-md focus:border-[#5D8BBA] focus:ring-2 focus:ring-[#5D8BBA] focus:outline-none resize-none"
-            placeholder="Enter your prompt here..."
-            rows={5}
-          />
 
           <div className="flex justify-end">
             <Button
               onClick={handleCopy}
               variant="secondary"
               size="sm"
-              className="bg-[#5D8BBA] text-white hover:bg-[#4A7AA3]"
+              className="bg-emerald-500 text-white hover:bg-emerald-600"
             >
               {copied ? (
                 <>
@@ -96,7 +145,7 @@ export function PromptEditor() {
             </Button>
           </div>
         </div>
-      </Card>
-    </div>
+      </div>
+    </Card>
   );
 }

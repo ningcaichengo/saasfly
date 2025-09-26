@@ -40,18 +40,18 @@ function StatItem({ label, value, targetNumber }: StatItemProps) {
   };
 
   return (
-    <div className="text-center">
-      <div className="text-2xl font-bold text-[#5D8BBA]">
-        {value.includes("4.9") ? "4.9/5.0 ⭐⭐⭐⭐⭐" : formatNumber(displayValue) + "+"}
+    <div className="flex flex-col items-center justify-center h-16">
+      <div className="text-2xl font-bold text-emerald-600 leading-tight">
+        {value.includes("4.9") ? "4.9/5.0" : formatNumber(displayValue) + "+"}
       </div>
-      <div className="text-sm text-[#6B7280] mt-1">{label}</div>
+      <div className="text-sm text-emerald-700 leading-tight">{label}</div>
     </div>
   );
 }
 
 export function StatsBar() {
   return (
-    <div className="w-full bg-[#E5E7EB] py-6">
+    <div className="w-full bg-emerald-100 py-6">
       <div className="container mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
           <StatItem
@@ -66,7 +66,7 @@ export function StatsBar() {
           />
           <StatItem
             label="User Rating"
-            value="4.9/5.0 ⭐⭐⭐⭐⭐"
+            value="4.9/5.0"
             targetNumber={49}
           />
         </div>
