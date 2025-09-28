@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     // Parse request data
     const formData = await req.formData();
     const file = formData.get('image') as File;
-    const style = formData.get('style') as string || 'creative';
+    const style = formData.get('style') as string || 'photographic';
     const language = formData.get('language') as string || 'auto';
 
     logger.info('Image analysis request received', 'API', {
@@ -175,6 +175,10 @@ function getStatusCodeForError(errorCode: string): number {
       return 502; // Bad Gateway
     case 'INVALID_RESPONSE':
       return 502; // Bad Gateway
+    case 'WORKFLOW_FAILED':
+      return 502; // Bad Gateway
+    case 'FILE_UPLOAD_FAILED':
+      return 500; // Internal Server Error
     default:
       return 500; // Internal Server Error
   }

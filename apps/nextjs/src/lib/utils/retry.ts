@@ -69,10 +69,7 @@ export async function withRetry<T>(
       // 添加一些随机性以避免雷群效应
       delay = delay + Math.random() * 1000;
 
-      console.log(
-        `[Retry] Attempt ${attempt + 1}/${opts.maxRetries + 1} failed, retrying in ${Math.round(delay)}ms`,
-        error
-      );
+      // Retry attempt in progress
 
       await new Promise(resolve => setTimeout(resolve, delay));
     }

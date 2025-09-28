@@ -28,12 +28,13 @@ export interface AIImageAnalyzer {
 }
 
 export interface AIServiceConfig {
-  provider: 'openai' | 'google' | 'azure' | 'mock';
+  provider: 'openai' | 'google' | 'azure' | 'coze' | 'mock';
   apiKey?: string;
   baseUrl?: string;
   model?: string;
   timeout?: number;
   retryCount?: number;
+  workflowId?: string; // For Coze workflow
 }
 
 export class AIServiceError extends Error {
@@ -56,5 +57,7 @@ export const AI_ERROR_CODES = {
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   NETWORK_ERROR: 'NETWORK_ERROR',
   INVALID_RESPONSE: 'INVALID_RESPONSE',
-  TIMEOUT: 'TIMEOUT'
+  TIMEOUT: 'TIMEOUT',
+  WORKFLOW_FAILED: 'WORKFLOW_FAILED',
+  FILE_UPLOAD_FAILED: 'FILE_UPLOAD_FAILED'
 } as const;

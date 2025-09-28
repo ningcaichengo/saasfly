@@ -1,6 +1,7 @@
 import { AIImageAnalyzer, AIServiceConfig, AIServiceError, AI_ERROR_CODES } from './types';
 import { MockImageAnalyzer } from './providers/mock';
 import { OpenAIImageAnalyzer } from './providers/openai';
+import { CozeImageAnalyzer } from './providers/coze';
 
 export class AIServiceFactory {
   private static instance: AIServiceFactory;
@@ -36,6 +37,14 @@ export class AIServiceFactory {
         analyzer = new OpenAIImageAnalyzer();
         break;
 
+      case 'coze':
+        analyzer = new CozeImageAnalyzer({
+          apiToken: process.env.COZE_API_TOKEN!,
+          baseUrl: process.env.COZE_API_BASE_URL,
+          workflowId: process.env.COZE_WORKFLOW_ID!,
+        });
+        break;
+
       case 'mock':
       default:
         analyzer = new MockImageAnalyzer();
@@ -59,7 +68,7 @@ export class AIServiceFactory {
   }
 
   async getAvailableProviders(): Promise<string[]> {
-    const providers = ['mock', 'openai'];
+    const providers = ['mock', 'openai', 'coze'];
     const availableProviders: string[] = [];
 
     for (const provider of providers) {
