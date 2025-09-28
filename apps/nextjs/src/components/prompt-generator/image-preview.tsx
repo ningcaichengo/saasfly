@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@saasfly/ui/button";
 import { Card } from "@saasfly/ui/card";
@@ -9,9 +9,13 @@ import { analytics } from "~/lib/monitoring/logger";
 
 interface ImagePreviewProps {
   onPromptGenerated?: (prompt: string, description: string, tags: string[]) => void;
+  selectedStyle?: string;
+  onAnalyzeReady?: (analyzeFunction: () => void) => void;
+  onProcessingStateChange?: (isProcessing: boolean) => void;
+  onError?: (error: string) => void;
 }
 
-export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
+export function ImagePreview({ onPromptGenerated, selectedStyle, onAnalyzeReady, onProcessingStateChange, onError }: ImagePreviewProps) {
   const [imageSrc, setImageSrc] = useState("/images/space-opera-default.png");
   const [isHovering, setIsHovering] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -25,7 +29,24 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
       // 验证文件类型
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
-        alert('Please select a valid image file (JPG, PNG, GIF, WebP)');
+        const errorMsg = `Unsupported file type: ${file.type}. Please select a JPG, PNG, GIF, or WebP image.`;
+        if (onError) {
+          onError(errorMsg);
+        } else {
+          alert(errorMsg);
+        }
+        return;
+      }
+
+      // 验证文件大小 (最大10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      if (file.size > maxSize) {
+        const errorMsg = `File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB. Maximum size is 10MB.`;
+        if (onError) {
+          onError(errorMsg);
+        } else {
+          alert(errorMsg);
+        }
         return;
       }
 
@@ -36,8 +57,7 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
       reader.onload = (e) => {
         setImageSrc(e.target?.result as string);
         setIsUploading(false);
-        // Auto-analyze the uploaded image
-        analyzeImage(file);
+        // Note: Auto-analysis removed - user must click Generate Prompt
       };
       reader.readAsDataURL(file);
     }
@@ -51,6 +71,7 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
     try {
       const formData = new FormData();
       formData.append('image', file);
+      formData.append('style', selectedStyle || 'photographic');
 
       const response = await fetch('/api/analyze-image', {
         method: 'POST',
@@ -73,10 +94,7 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
           file_type: file.type
         });
 
-        // 显示成功信息（可选）
-        if (result.data.provider !== 'mock') {
-          console.log(`Analysis completed using ${result.data.provider} in ${result.data.processingTime?.total}ms`);
-        }
+        // 分析完成
       } else {
         // 处理API错误响应
         const errorMessage = result.error?.message || 'Analysis failed';
@@ -84,8 +102,6 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
 
         // 检查是否应该重试
         if (shouldRetry(response.status, errorCode) && retryCount < 2) {
-          console.log(`Retrying analysis (attempt ${retryCount + 1}/3)...`);
-
           // 计算重试延迟
           const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -106,7 +122,6 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
         throw new Error(getErrorMessage(response.status, errorCode, errorMessage));
       }
     } catch (error) {
-      console.error('Error analyzing image:', error);
 
       // Track frontend errors
       analytics.track('frontend_error', {
@@ -127,7 +142,7 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
   const shouldRetry = (status: number, code: string): boolean => {
     // 重试条件：网络错误、超时、服务不可用、限流
     const retryableStatuses = [408, 429, 502, 503, 504];
-    const retryableCodes = ['TIMEOUT', 'NETWORK_ERROR', 'SERVICE_UNAVAILABLE'];
+    const retryableCodes = ['TIMEOUT', 'NETWORK_ERROR', 'SERVICE_UNAVAILABLE', 'WORKFLOW_FAILED'];
 
     return retryableStatuses.includes(status) || retryableCodes.includes(code);
   };
@@ -148,25 +163,49 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
         return 'Network error. Please check your connection and try again.';
       case 'SERVICE_UNAVAILABLE':
         return 'AI service is temporarily unavailable. Please try again later.';
+      case 'WORKFLOW_FAILED':
+        return 'Workflow execution failed. Please try again later.';
+      case 'FILE_UPLOAD_FAILED':
+        return 'File upload failed. Please check your connection and try again.';
       default:
         return originalMessage || 'Failed to analyze image. Please try again.';
     }
   };
 
   const showErrorMessage = (error: Error) => {
-    // 在生产环境中，这里可以使用更优雅的通知组件
-    alert(error.message);
+    const message = error.message;
+    if (onError) {
+      onError(message);
+    } else {
+      // Fallback to alert if no error handler provided
+      alert(message);
+    }
   };
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleManualAnalyze = () => {
+  // Expose the analyze function to parent component
+  const handleAnalyze = useCallback(() => {
     if (currentFile) {
       analyzeImage(currentFile);
     }
-  };
+  }, [currentFile]);
+
+  // Notify parent when analyze function is ready
+  useEffect(() => {
+    if (currentFile && onAnalyzeReady) {
+      onAnalyzeReady(handleAnalyze);
+    }
+  }, [currentFile, onAnalyzeReady, handleAnalyze]);
+
+  // Notify parent of processing state changes
+  useEffect(() => {
+    if (onProcessingStateChange) {
+      onProcessingStateChange(isAnalyzing);
+    }
+  }, [isAnalyzing, onProcessingStateChange]);
 
   return (
     <div className="space-y-4">
@@ -219,39 +258,16 @@ export function ImagePreview({ onPromptGenerated }: ImagePreviewProps) {
         onChange={handleFileUpload}
       />
 
-      {/* 按钮组 */}
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50 hover:border-emerald-500 transition-all duration-300"
-          onClick={handleImageClick}
-        >
-          <Icons.Upload className="mr-2 h-4 w-4" />
-          Upload Image
-        </Button>
-        {currentFile && (
-          <Button
-            type="button"
-            variant="default"
-            className="bg-emerald-500 text-white hover:bg-emerald-600 transition-all duration-300"
-            onClick={handleManualAnalyze}
-            disabled={isAnalyzing}
-          >
-            {isAnalyzing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Icons.Zap className="mr-2 h-4 w-4" />
-                Analyze Image
-              </>
-            )}
-          </Button>
-        )}
-      </div>
+      {/* 上传按钮 */}
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50 hover:border-emerald-500 transition-all duration-300"
+        onClick={handleImageClick}
+      >
+        <Icons.Upload className="mr-2 h-4 w-4" />
+        Upload Image
+      </Button>
     </div>
   );
 }

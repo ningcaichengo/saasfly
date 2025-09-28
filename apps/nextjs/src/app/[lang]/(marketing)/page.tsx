@@ -5,6 +5,8 @@ import { ControlPanel } from "~/components/prompt-generator/control-panel";
 import { PromptEditor } from "~/components/prompt-generator/prompt-editor";
 import { StatsBar } from "~/components/prompt-generator/stats-bar";
 import { LanguageSwitcher } from "~/components/language-switcher";
+import { ToastContainer } from "~/components/ui/toast";
+import { useToast } from "~/hooks/use-toast";
 import { Button } from "@saasfly/ui/button";
 import * as Icons from "@saasfly/ui/icons";
 
@@ -18,19 +20,22 @@ export default function IndexPage({
   };
 }) {
   const [currentPrompt, setCurrentPrompt] = useState<string>("");
-  const [generatedDescription, setGeneratedDescription] = useState<string>("");
-  const [generatedTags, setGeneratedTags] = useState<string[]>([]);
+  const { toasts, showSuccess, showError, showWarning, closeToast } = useToast();
 
   const handlePromptGenerated = (prompt: string, description: string, tags: string[]) => {
     setCurrentPrompt(prompt);
-    setGeneratedDescription(description);
-    setGeneratedTags(tags);
+    showSuccess("Prompt generated successfully!");
+    // Note: description and tags are ignored - we only use the generated prompt
+  };
+
+  const handleError = (errorMessage: string) => {
+    showError(errorMessage);
   };
 
   const handleRegeneratePrompt = () => {
     // This would typically regenerate based on the current image and style settings
     // For now, we'll just clear the current prompt to trigger regeneration
-    console.log("Regenerating prompt with current settings...");
+    // Regenerating prompt with current settings
     // In a real implementation, you might want to call the analyze API again
   };
   return (
@@ -90,6 +95,7 @@ export default function IndexPage({
             <ControlPanel
               onPromptGenerated={handlePromptGenerated}
               onRegeneratePrompt={handleRegeneratePrompt}
+              onError={handleError}
             />
           </div>
 
@@ -99,28 +105,13 @@ export default function IndexPage({
               prompt={currentPrompt}
               onPromptChange={setCurrentPrompt}
             />
-            {generatedDescription && (
-              <div className="bg-white p-4 rounded-lg border-2 border-emerald-200">
-                <h3 className="text-sm font-semibold text-emerald-900 mb-2">Analysis Result:</h3>
-                <p className="text-sm text-emerald-700 mb-2">{generatedDescription}</p>
-                {generatedTags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {generatedTags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
       </main>
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onClose={closeToast} />
 
       {/* Statistics Bar */}
       <StatsBar />

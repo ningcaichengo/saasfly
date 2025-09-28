@@ -31,13 +31,12 @@ export const SignInClerkModal = ({ dict }: { dict: Record<string, string> }) => 
         redirectUrlComplete: `${protocol}//${host}/dashboard`,
       })
       .then((res) => {
-        console.log(res)
+        // Authentication successful
       })
       .catch((err: any) => {
         // See https://clerk.com/docs/custom-flows/error-handling
         // for more info on error handling
-        console.log(err.errors)
-        console.error(err, null, 2)
+        console.error('Authentication error:', err)
       })
   }
 

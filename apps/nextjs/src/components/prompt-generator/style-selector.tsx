@@ -12,21 +12,32 @@ import {
 import { Label } from "@saasfly/ui/label";
 
 const styles = [
-  { id: "general", name: "General", description: "Standard AI generation" },
-  { id: "flux", name: "Flux style", description: "Flux model style" },
-  { id: "sd", name: "SD style", description: "Stable Diffusion style" },
-  { id: "midjourney", name: "Midjourney", description: "Midjourney style" },
+  { id: "photographic", name: "General", description: "Standard AI generation" },
+  { id: "artistic", name: "Flux style", description: "Flux model style" },
+  { id: "technical", name: "SD style", description: "Stable Diffusion style" },
+  { id: "creative", name: "Midjourney", description: "Midjourney style" },
 ];
 
 interface StyleSelectorProps {
   className?: string;
+  value?: string;
+  onValueChange?: (value: string) => void;
 }
 
-export function StyleSelector({ className }: StyleSelectorProps = {}) {
-  const [selectedStyle, setSelectedStyle] = useState("general");
+export function StyleSelector({ className, value, onValueChange }: StyleSelectorProps = {}) {
+  const [selectedStyle, setSelectedStyle] = useState("photographic");
+
+  const currentValue = value !== undefined ? value : selectedStyle;
+  const handleValueChange = (newValue: string) => {
+    if (onValueChange) {
+      onValueChange(newValue);
+    } else {
+      setSelectedStyle(newValue);
+    }
+  };
 
   return (
-    <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+    <Select value={currentValue} onValueChange={handleValueChange}>
       <SelectTrigger className="w-full border-emerald-200 text-emerald-900 focus:border-emerald-500 focus:ring-emerald-500">
         <SelectValue placeholder="Select a style" />
       </SelectTrigger>
