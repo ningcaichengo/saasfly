@@ -909,7 +909,66 @@ CLAUDE.md                       # 开发指导文档
 turbo.json                      # Turborepo配置
 ```
 
-### 联系方式
+### Coze工作流API集成指南
+
+### API文档关键信息
+基于官方文档：https://www.coze.cn/docs/developer_guides/workflow_run
+
+#### 请求格式
+- **URL**: `https://api.coze.cn/v1/workflow/run`
+- **方法**: POST
+- **Content-Type**: application/json
+
+#### 核心参数格式
+```json
+{
+  "workflow_id": "工作流ID",
+  "parameters": {
+    // 参数格式根据工作流定义决定
+  }
+}
+```
+
+#### Image类型参数的正确格式
+根据官方文档，Image类型参数有两种格式：
+
+**方式1: 使用file_id（推荐）**
+```json
+"parameters": {
+  "image": "{\"file_id\":\"1122334455\"}"
+}
+```
+
+**方式2: 使用文件URL**
+```json
+"parameters": {
+  "image": "https://example.com/image.png"
+}
+```
+
+#### 重要注意事项
+1. **参数名必须与工作流定义完全匹配**
+2. **Image类型参数值必须是JSON字符串格式，不是直接的file_id**
+3. **文件必须先通过上传文件API获取file_id**
+4. **工作流必须已发布才能调用**
+
+#### 实际项目中的参数映射
+根据当前工作流配置：
+- **工作流参数名**: `img` (Image类型)
+- **工作流参数名**: `userquery` (String类型)
+
+**正确的参数格式**:
+```typescript
+const requestBody = {
+  "workflow_id": this.workflowId,
+  "parameters": {
+    "img": `{"file_id":"${fileId}"}`,    // 注意：参数名是img，不是image
+    "userquery": modelMap[style] || 'normal'
+  }
+};
+```
+
+## 联系方式
 遇到问题或需要协作时，请：
 1. 检查本文档的相关章节
 2. 查看组件源码和注释
@@ -918,7 +977,7 @@ turbo.json                      # Turborepo配置
 
 ---
 
-**文档版本**: v2.0.0
-**更新时间**: 2024-12-XX
+**文档版本**: v2.1.0
+**更新时间**: 2024-12-27
 **适用项目**: AI图像提示生成器
 **维护者**: Claude Code Assistant
